@@ -24,7 +24,7 @@ class ChatBot:
         self.chatgpt = chatgpt
         self.debug = debug
         self.sentry = sentry
-        self.log_level = logging.DEBUG if debug else logging.WARN
+        self.log_level = logging.DEBUG if debug else logging.INFO
 
         hook_logging(level=self.log_level, format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
         self.logger = logging.getLogger('waitress')
