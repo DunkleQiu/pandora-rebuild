@@ -14,7 +14,7 @@ from werkzeug.serving import WSGIRequestHandler
 from .. import __version__
 from ..exts.hooks import hook_logging
 from ..openai.api import API
-
+from ..openai.utils import Console
 
 class ChatBot:
     __default_ip = '127.0.0.1'
@@ -191,26 +191,32 @@ class ChatBot:
         return jsonify(ret)
 
     def list_models(self):
+        logging.getLogger('waitress').warning("list models")
         return self.__proxy_result(self.chatgpt.list_models(True, self.__get_token_key()))
 
     def list_conversations(self):
         offset = request.args.get('offset', '0')
         limit = request.args.get('limit', '20')
 
+        logging.getLogger('waitress').warning("list conversations")
         return self.__proxy_result(self.chatgpt.list_conversations(offset, limit, True, self.__get_token_key()))
 
     def get_conversation(self, conversation_id):
+        logging.getLogger('waitress').warning("get conversations")
         return self.__proxy_result(self.chatgpt.get_conversation(conversation_id, True, self.__get_token_key()))
 
     def del_conversation(self, conversation_id):
+        logging.getLogger('waitress').warning("delete conversations")
         return self.__proxy_result(self.chatgpt.del_conversation(conversation_id, True, self.__get_token_key()))
 
     def clear_conversations(self):
+        logging.getLogger('waitress').warning("clear conversations")
         return self.__proxy_result(self.chatgpt.clear_conversations(True, self.__get_token_key()))
 
     def set_conversation_title(self, conversation_id):
         title = request.json['title']
 
+        logging.getLogger('waitress').warning("set title conversations")
         return self.__proxy_result(
             self.chatgpt.set_conversation_title(conversation_id, title, True, self.__get_token_key()))
 
@@ -219,6 +225,7 @@ class ChatBot:
         model = payload['model']
         message_id = payload['message_id']
 
+        logging.getLogger('waitress').warning("gen title conversations")
         return self.__proxy_result(
             self.chatgpt.gen_conversation_title(conversation_id, model, message_id, True, self.__get_token_key()))
 
@@ -265,6 +272,7 @@ class ChatBot:
     @staticmethod
     def __process_stream(status, headers, generator, stream):
         if stream:
+            Console.info(stream)
             return Response(API.wrap_stream_out(generator, status), mimetype=headers['Content-Type'], status=status)
 
         last_json = None
@@ -276,6 +284,7 @@ class ChatBot:
     @staticmethod
     def __proxy_result(remote_resp):
         resp = make_response(remote_resp.text)
+        Console.info("Debug Remote Response:{}\n{}\n{}".format(remote_resp.status_code, remote_resp.headers, remote_resp.text))
         resp.content_type = remote_resp.headers['Content-Type']
         resp.status_code = remote_resp.status_code
 

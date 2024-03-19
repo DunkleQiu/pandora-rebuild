@@ -5,10 +5,11 @@ import re
 from datetime import datetime as dt
 from urllib.parse import urlparse, parse_qs
 
-import requests
+from curl_cffi import requests
 from certifi import where
 
 from ..exts.config import default_api_prefix
+from .utils import Console
 
 
 class Auth0:
@@ -18,7 +19,7 @@ class Auth0:
         self.password = password
         self.use_cache = use_cache
         self.mfa = mfa
-        self.session = requests.Session()
+        self.session = requests.Session(impersonate="chrome110")
         self.req_kwargs = {
             'proxies': {
                 'http': proxy,
@@ -31,7 +32,7 @@ class Auth0:
         self.refresh_token = None
         self.expires = None
         self.user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ' \
-                          'Chrome/109.0.0.0 Safari/537.36'
+                          'Chrome/110.0.0.0 Safari/537.36'
 
     @staticmethod
     def __check_email(email: str):

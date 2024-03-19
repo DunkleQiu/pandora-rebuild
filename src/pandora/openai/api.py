@@ -6,17 +6,21 @@ import queue as block_queue
 import threading
 from os import getenv
 
-import httpx
-import requests
+from curl_cffi import requests
 from certifi import where
 
 from .. import __version__
 from ..exts.config import default_api_prefix
+from .utils import Console
 
 
 class API:
     def __init__(self, proxy, ca_bundle):
         self.proxy = proxy
+        self.proxies = {
+            'http': self.proxy,
+            'https': self.proxy,
+        } if self.proxy else None
         self.ca_bundle = ca_bundle
 
     @staticmethod
@@ -39,7 +43,7 @@ class API:
         if resp.status_code != 200:
             yield await self.__process_sse_except(resp)
             return
-
+        Console.info("Do process sse...")
         async for utf8_line in resp.aiter_lines():
             if 'data: [DONE]' == utf8_line[0:12]:
                 break
@@ -72,7 +76,7 @@ class API:
                     raise e
 
     async def _do_request_sse(self, url, headers, data, queue, event):
-        async with httpx.AsyncClient(verify=self.ca_bundle, proxies=self.proxy) as client:
+        async with requests.AsyncSession(verify=self.ca_bundle, proxies=self.proxies, impersonate="chrome110") as client:
             async with client.stream('POST', url, json=data, headers=headers, timeout=600) as resp:
                 async for line in self.__process_sse(resp):
                     queue.put(line)
@@ -96,7 +100,7 @@ class ChatGPT(API):
         self.access_tokens = access_tokens
         self.access_token_key_list = list(access_tokens)
         self.default_token_key = self.access_token_key_list[0]
-        self.session = requests.Session()
+        self.session = requests.Session(impersonate="chrome110")
         self.req_kwargs = {
             'proxies': {
                 'http': proxy,
@@ -121,7 +125,8 @@ class ChatGPT(API):
 
     @staticmethod
     def __get_api_prefix():
-        return getenv('CHATGPT_API_PREFIX', default_api_prefix())
+        return "https://chat.openai.com/backend-api"
+        # return getenv('CHATGPT_API_PREFIX', default_api_prefix())
 
     def get_access_token(self, token_key=None):
         return self.access_tokens[token_key or self.default_token_key]
@@ -130,7 +135,7 @@ class ChatGPT(API):
         return self.access_token_key_list
 
     def list_models(self, raw=False, token=None):
-        url = '{}/api/models'.format(self.__get_api_prefix())
+        url = '{}/models'.format(self.__get_api_prefix())
         resp = self.session.get(url=url, headers=self.__get_headers(token), **self.req_kwargs)
 
         if raw:
@@ -146,7 +151,7 @@ class ChatGPT(API):
         return result['models']
 
     def list_conversations(self, offset, limit, raw=False, token=None):
-        url = '{}/api/conversations?offset={}&limit={}'.format(self.__get_api_prefix(), offset, limit)
+        url = '{}/conversations?offset={}&limit={}'.format(self.__get_api_prefix(), offset, limit)
         resp = self.session.get(url=url, headers=self.__get_headers(token), **self.req_kwargs)
 
         if raw:
@@ -158,7 +163,7 @@ class ChatGPT(API):
         return resp.json()
 
     def get_conversation(self, conversation_id, raw=False, token=None):
-        url = '{}/api/conversation/{}'.format(self.__get_api_prefix(), conversation_id)
+        url = '{}/conversation/{}'.format(self.__get_api_prefix(), conversation_id)
         resp = self.session.get(url=url, headers=self.__get_headers(token), **self.req_kwargs)
 
         if raw:
@@ -174,7 +179,7 @@ class ChatGPT(API):
             'is_visible': False,
         }
 
-        url = '{}/api/conversations'.format(self.__get_api_prefix())
+        url = '{}/conversations'.format(self.__get_api_prefix())
         resp = self.session.patch(url=url, headers=self.__get_headers(token), json=data, **self.req_kwargs)
 
         if raw:
@@ -197,7 +202,7 @@ class ChatGPT(API):
         return self.__update_conversation(conversation_id, data, raw, token)
 
     def gen_conversation_title(self, conversation_id, model, message_id, raw=False, token=None):
-        url = '{}/api/conversation/gen_title/{}'.format(self.__get_api_prefix(), conversation_id)
+        url = '{}/conversation/gen_title/{}'.format(self.__get_api_prefix(), conversation_id)
         data = {
             'model': model,
             'message_id': message_id,
@@ -282,13 +287,13 @@ class ChatGPT(API):
         return self.__request_conversation(data, token)
 
     def __request_conversation(self, data, token=None):
-        url = '{}/api/conversation'.format(self.__get_api_prefix())
+        url = '{}/conversation'.format(self.__get_api_prefix())
         headers = {**self.session.headers, **self.__get_headers(token), 'Accept': 'text/event-stream'}
 
         return self._request_sse(url, headers, data)
 
     def __update_conversation(self, conversation_id, data, raw=False, token=None):
-        url = '{}/api/conversation/{}'.format(self.__get_api_prefix(), conversation_id)
+        url = '{}/conversation/{}'.format(self.__get_api_prefix(), conversation_id)
         resp = self.session.patch(url=url, headers=self.__get_headers(token), json=data, **self.req_kwargs)
 
         if raw:
@@ -313,7 +318,7 @@ class ChatGPT(API):
 
 class ChatCompletion(API):
     def __init__(self, proxy=None):
-        self.session = requests.Session()
+        self.session = requests.Session(impersonate="chrome110")
         self.req_kwargs = {
             'proxies': {
                 'http': proxy,
@@ -352,6 +357,7 @@ class ChatCompletion(API):
             prefix = default
         else:
             prefix = getenv('OPENAI_API_PREFIX', default)
+        prefix = 'https://ab.chatgpt.com'
         url = '{}/v1/chat/completions'.format(prefix)
 
         if stream:
