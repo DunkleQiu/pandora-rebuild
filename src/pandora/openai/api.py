@@ -11,7 +11,7 @@ from certifi import where
 
 from .. import __version__
 from ..exts.config import default_api_prefix
-from .utils import Console
+from .utils import logger
 
 
 class API:
@@ -43,7 +43,8 @@ class API:
         if resp.status_code != 200:
             yield await self.__process_sse_except(resp)
             return
-        Console.info("Do process sse...")
+        logger.info("Do process sse...")
+        logger.info(resp)
         async for utf8_line in resp.aiter_lines():
             if 'data: [DONE]' == utf8_line[0:12]:
                 break

@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import os
+import logging
 
 from rich.console import Console as RichConsole
 from rich.theme import Theme
 
+logger = logging.getLogger('waitress')
 
 class Console:
     __theme = Theme({
